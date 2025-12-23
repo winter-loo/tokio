@@ -13,19 +13,40 @@
 
 use tokio::io::AsyncWriteExt;
 use tokio::net::TcpStream;
+use tokio::runtime::Builder;
 
 use std::error::Error;
 
-#[tokio::main]
-pub async fn main() -> Result<(), Box<dyn Error>> {
-    // Open a TCP stream to the socket address.
-    //
-    // Note that this is the Tokio TcpStream, which is fully async.
-    let mut stream = TcpStream::connect("127.0.0.1:6142").await?;
-    println!("created stream");
+fn main() -> Result<(), Box<dyn Error>> {
+    let rt = Builder::new_current_thread().enable_io().build().unwrap();
+    println!("start run loop...1");
+    rt.block_on(async {
+        println!("async started...1");
+        // let mut stream = TcpStream::connect("10.0.0.2:6142").await?;
+        let mut stream = TcpStream::connect("127.0.0.1:6142").await.unwrap();
+        println!("created stream");
 
-    let result = stream.write_all(b"hello world\n").await;
-    println!("wrote to stream; success={:?}", result.is_ok());
+        let result = stream.write_all(b"hello world\n").await;
+        println!("wrote to stream; success={:?}", result.is_ok());
+    });
+
+    // the following future demostrates we have one more TOKEN_WAKEUP event
+    rt.block_on(async {
+        let mut i = 0;
+        std::future::poll_fn(|cx| {
+            // This is a computation task and once the Pending returns and
+            // tokio runtime has no way to poll this future again.
+            println!("i = {i}");
+            if i == 1 {
+                println!("...ready");
+                std::task::Poll::Ready(())
+            } else {
+                i += 1;
+                println!("...pending...");
+                std::task::Poll::Pending
+            }
+        }).await;
+    });
 
     Ok(())
 }

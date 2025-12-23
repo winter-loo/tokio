@@ -307,6 +307,7 @@ impl ScheduledIo {
         cx: &mut Context<'_>,
         direction: Direction,
     ) -> Poll<ReadyEvent> {
+        println!("check readiness....");
         let curr = self.readiness.load(Acquire);
 
         let ready = direction.mask() & Ready::from_usize(READINESS.unpack(curr));
@@ -329,6 +330,7 @@ impl ScheduledIo {
 
             // Try again, in case the readiness was changed while we were
             // taking the waiters lock
+            println!("check readiness again....");
             let curr = self.readiness.load(Acquire);
             let ready = direction.mask() & Ready::from_usize(READINESS.unpack(curr));
             let is_shutdown = SHUTDOWN.unpack(curr) != 0;
@@ -339,8 +341,10 @@ impl ScheduledIo {
                     is_shutdown,
                 })
             } else if ready.is_empty() {
+                println!("return pending....8");
                 Poll::Pending
             } else {
+                println!("return ready....9");
                 Poll::Ready(ReadyEvent {
                     tick: TICK.unpack(curr) as u8,
                     ready,
@@ -348,6 +352,7 @@ impl ScheduledIo {
                 })
             }
         } else {
+            println!("already ready.....");
             Poll::Ready(ReadyEvent {
                 tick: TICK.unpack(curr) as u8,
                 ready,

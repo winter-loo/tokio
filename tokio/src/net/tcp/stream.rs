@@ -113,17 +113,24 @@ impl TcpStream {
         /// [`write_all`]: fn@crate::io::AsyncWriteExt::write_all
         /// [`AsyncWriteExt`]: trait@crate::io::AsyncWriteExt
         pub async fn connect<A: ToSocketAddrs>(addr: A) -> io::Result<TcpStream> {
+            println!("another async started....2");
             let addrs = to_socket_addrs(addr).await?;
+            println!("change to next state....3");
 
             let mut last_err = None;
 
             for addr in addrs {
+                println!("ready to change to another state....4");
                 match TcpStream::connect_addr(addr).await {
-                    Ok(stream) => return Ok(stream),
+                    Ok(stream) => {
+                        println!("change to next state....5");
+                        return Ok(stream);
+                    }
                     Err(e) => last_err = Some(e),
                 }
             }
 
+            println!("connect error....6");
             Err(last_err.unwrap_or_else(|| {
                 io::Error::new(
                     io::ErrorKind::InvalidInput,
@@ -140,6 +147,7 @@ impl TcpStream {
 
         pub(crate) async fn connect_mio(sys: mio::net::TcpStream) -> io::Result<TcpStream> {
             let stream = TcpStream::new(sys)?;
+            println!("client socket registered....7...change to poll_write_ready state");
 
             // Once we've connected, wait for the stream to be writable as
             // that's when the actual connection has been initiated. Once we're
@@ -147,12 +155,15 @@ impl TcpStream {
             // actually hit an error or not.
             //
             // If all that succeeded then we ship everything on up.
-            poll_fn(|cx| stream.io.registration().poll_write_ready(cx)).await?;
+            let ready_event = poll_fn(|cx| stream.io.registration().poll_write_ready(cx)).await?;
+            println!("ready_event={:?}", ready_event);
 
             if let Some(e) = stream.io.take_error()? {
+                println!("Ah!...io error....");
                 return Err(e);
             }
 
+            println!("Fine!...connected....");
             Ok(stream)
         }
     }

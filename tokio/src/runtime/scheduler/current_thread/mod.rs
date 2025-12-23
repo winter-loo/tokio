@@ -715,12 +715,15 @@ impl Schedule for Arc<Handle> {
 
 impl Wake for Handle {
     fn wake(arc_self: Arc<Self>) {
+        println!("Handle Got it, continue to wake");
         Wake::wake_by_ref(&arc_self);
     }
 
     /// Wake by reference
     fn wake_by_ref(arc_self: &Arc<Self>) {
+        println!("Now set woken flag to true...");
         arc_self.shared.woken.store(true, Release);
+        println!("unparking....");
         arc_self.driver.unpark();
     }
 }
@@ -750,15 +753,20 @@ impl CoreGuard<'_> {
 
                 if handle.reset_woken() {
                     let (c, res) = context.enter(core, || {
-                        crate::task::coop::budget(|| future.as_mut().poll(&mut cx))
+                        crate::task::coop::budget(|| {
+                            println!("Manually polling future...");
+                            future.as_mut().poll(&mut cx)
+                        })
                     });
 
                     core = c;
 
                     if let Ready(v) = res {
+                        println!("the future is ready, back from block_on");
                         return (core, Some(v));
                     }
                 }
+                println!("future is pending..., check tasks....");
 
                 let mut has_tasks = true;
 
@@ -773,6 +781,7 @@ impl CoreGuard<'_> {
                     let entry = core.next_task(handle);
 
                     let Some(task) = entry else {
+                        println!("no tasks...check events next...");
                         has_tasks = false;
                         break;
                     };
@@ -786,6 +795,7 @@ impl CoreGuard<'_> {
                         #[cfg(tokio_unstable)]
                         context.handle.task_hooks.poll_start_callback(&task_meta);
 
+                        println!("task running...");
                         task.run();
 
                         #[cfg(tokio_unstable)]
@@ -800,12 +810,16 @@ impl CoreGuard<'_> {
                 // Yield to the driver, this drives the timer and pulls any
                 // pending I/O events.
                 if has_tasks || !context.defer.is_empty() {
+                    println!("checking events, parking but not blocking now...");
                     core = context.park_yield(core, handle);
                 } else {
+                    println!("checking events, parking and blocking now...");
                     core = context.park(core, handle);
                 }
 
                 core.metrics.start_processing_scheduled_tasks();
+
+                println!("block_on move on to next iteration...");
             }
         });
 

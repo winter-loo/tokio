@@ -132,7 +132,10 @@ pub(crate) fn thread_rng_n(n: u32) -> u32 {
 }
 
 pub(crate) fn budget<R>(f: impl FnOnce(&Cell<coop::Budget>) -> R) -> Result<R, AccessError> {
-    CONTEXT.try_with(|ctx| f(&ctx.budget))
+    CONTEXT.try_with(|ctx| {
+        println!("budget = {:?}", ctx.budget.get());
+        f(&ctx.budget)
+    })
 }
 
 cfg_rt! {

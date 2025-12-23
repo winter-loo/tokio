@@ -195,6 +195,7 @@ impl Driver {
             }
             Err(e) => panic!("unexpected error when polling the I/O driver: {e:?}"),
         }
+        println!("poll wakes up...has events: {}", !events.is_empty());
 
         // Process all the events that came in, dispatching appropriately
         let mut ready_count = 0;
@@ -203,6 +204,7 @@ impl Driver {
 
             if token == TOKEN_WAKEUP {
                 // Nothing to do, the event is used to unblock the I/O driver
+                println!("TOKEN_WAKEUP, Nothing to do, the event is used to unblock the I/O driver");
             } else if token == TOKEN_SIGNAL {
                 self.signal_ready = true;
             } else {
@@ -215,6 +217,7 @@ impl Driver {
                 // an `Arc<ScheduledIo>` so we can safely cast this to a ref.
                 let io: &ScheduledIo = unsafe { &*ptr };
 
+                println!("user event ready, wake up chain activating...");
                 io.set_readiness(Tick::Set, |curr| curr | ready);
                 io.wake(ready);
 
@@ -235,6 +238,7 @@ impl Driver {
             ctx.dispatch_completions();
         }
 
+        println!("unparked, turn control flow to runtime...");
         handle.metrics.incr_ready_count_by(ready_count);
     }
 }
@@ -256,6 +260,7 @@ impl Handle {
     /// blocked in `turn`, then the next call to `turn` will not block and
     /// return immediately.
     pub(crate) fn unpark(&self) {
+        println!("will use mio::Waker to wake up someone. Internally in Linux, mio use eventfd and write 8 bytes to eventfd and finally epoll_wait wakes up...");
         #[cfg(not(target_os = "wasi"))]
         self.waker.wake().expect("failed to wake I/O driver");
     }

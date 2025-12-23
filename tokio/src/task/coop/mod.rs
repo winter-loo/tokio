@@ -162,6 +162,7 @@ fn with_budget<R>(budget: Budget, f: impl FnOnce() -> R) -> R {
         ResetGuard { prev }
     });
 
+    println!("with budget={:?}, doing task...", budget);
     // The function is called regardless even if the budget is not successfully
     // set due to the thread-local being destroyed.
     f()

@@ -59,6 +59,7 @@ unsafe fn clone_arc_raw<T: Wake>(data: *const ()) -> RawWaker {
 }
 
 unsafe fn wake_arc_raw<T: Wake>(data: *const ()) {
+    println!("Wake Up....Continue Your Task...");
     // Safety: `data` was created from an `Arc::as_ptr` in function `waker_ref`.
     let arc: Arc<T> = unsafe { Arc::from_raw(data as *const T) };
     Wake::wake(arc);

@@ -113,6 +113,7 @@ impl Registration {
     // Uses the poll path, requiring the caller to ensure mutual exclusion for
     // correctness. Only the last task to call this function is notified.
     pub(crate) fn poll_write_ready(&self, cx: &mut Context<'_>) -> Poll<io::Result<ReadyEvent>> {
+        println!("change to poll_write_ready state");
         self.poll_ready(cx, Direction::Write)
     }
 
@@ -155,6 +156,7 @@ impl Registration {
             return Poll::Ready(Err(gone()));
         }
 
+        println!("poll_ready...made_progress");
         coop.made_progress();
         Poll::Ready(Ok(ev))
     }
