@@ -745,7 +745,7 @@ impl CoreGuard<'_> {
 
             core.metrics.start_processing_scheduled_tasks();
 
-            'outer: loop {
+            loop {
                 let handle = &context.handle;
 
                 if handle.reset_woken() {
@@ -760,6 +760,8 @@ impl CoreGuard<'_> {
                     }
                 }
 
+                let mut has_tasks = true;
+
                 for _ in 0..handle.shared.config.event_interval {
                     // Make sure we didn't hit an unhandled_panic
                     if core.unhandled_panic {
@@ -770,22 +772,9 @@ impl CoreGuard<'_> {
 
                     let entry = core.next_task(handle);
 
-                    let task = match entry {
-                        Some(entry) => entry,
-                        None => {
-                            core.metrics.end_processing_scheduled_tasks();
-
-                            core = if !context.defer.is_empty() {
-                                context.park_yield(core, handle)
-                            } else {
-                                context.park(core, handle)
-                            };
-
-                            core.metrics.start_processing_scheduled_tasks();
-
-                            // Try polling the `block_on` future next
-                            continue 'outer;
-                        }
+                    let Some(task) = entry else {
+                        has_tasks = false;
+                        break;
                     };
 
                     let task = context.handle.shared.owned.assert_owner(task);
@@ -810,7 +799,11 @@ impl CoreGuard<'_> {
 
                 // Yield to the driver, this drives the timer and pulls any
                 // pending I/O events.
-                core = context.park_yield(core, handle);
+                if has_tasks || !context.defer.is_empty() {
+                    core = context.park_yield(core, handle);
+                } else {
+                    core = context.park(core, handle);
+                }
 
                 core.metrics.start_processing_scheduled_tasks();
             }
