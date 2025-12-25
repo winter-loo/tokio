@@ -74,6 +74,7 @@ impl<S> Registry<S> {
 impl<S: Storage> Registry<S> {
     /// Registers a new listener for `event_id`.
     fn register_listener(&self, event_id: EventId) -> watch::Receiver<()> {
+        println!("=== register a signal event listener by watch::Sender...signal={}", event_id);
         self.storage
             .event_info(event_id)
             .unwrap_or_else(|| panic!("invalid event_id: {event_id}"))

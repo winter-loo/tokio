@@ -16,37 +16,66 @@ use tokio::net::TcpStream;
 use tokio::runtime::Builder;
 
 use std::error::Error;
+use std::time::Duration;
+
+async fn handle(addr: &str) {
+    match TcpStream::connect(addr).await {
+        Ok(mut _stream) => {
+            // read/write loop
+        }
+        Err(e) => eprintln!("{} failed: {}", addr, e),
+    }
+}
 
 fn main() -> Result<(), Box<dyn Error>> {
-    let rt = Builder::new_current_thread().enable_io().build().unwrap();
-    println!("start run loop...1");
-    rt.block_on(async {
-        println!("async started...1");
-        // let mut stream = TcpStream::connect("10.0.0.2:6142").await?;
-        let mut stream = TcpStream::connect("127.0.0.1:6142").await.unwrap();
-        println!("created stream");
+    let addrs = ["127.0.0.1:8080", "127.0.0.1:8081", "127.0.0.1:8082"];
+    let rt = Builder::new_current_thread().enable_all().build().unwrap();
 
-        let result = stream.write_all(b"hello world\n").await;
-        println!("wrote to stream; success={:?}", result.is_ok());
+    // let futures = addrs.iter().map(|addr| TcpStream::connect(addr));
+    //
+    // rt.block_on(async {
+    //     let streams: Vec<TcpStream> = futures::future::try_join_all(futures).await.unwrap();
+    //     println!("connected to {} servers", streams.len());
+    // });
+
+    let _guard = rt.enter();
+
+    // these tasks will be pushed into the remote queue
+    for addr in addrs {
+        tokio::spawn(handle(addr));
+    }
+
+    let rt_handle = rt.handle().clone();
+    std::thread::spawn(move || {
+        rt_handle.spawn(async {
+            println!("----- Task from thread 1");
+            tokio::time::sleep(Duration::from_secs(1)).await;
+            println!("----- Task 1 completed");
+        });
+        println!("this block_on uses CondVar to wait/notify");
+        rt_handle.block_on(async {
+            println!("----- runtime will sleep 4 seconds in this thread");
+            println!("----- tokio:sleep will wake up through time::Driver");
+            tokio::time::sleep(Duration::from_secs(4)).await;
+            println!("----- runtime wakes up from 4 second sleep");
+        });
     });
 
-    // the following future demostrates we have one more TOKEN_WAKEUP event
-    rt.block_on(async {
-        let mut i = 0;
-        std::future::poll_fn(|cx| {
-            // This is a computation task and once the Pending returns and
-            // tokio runtime has no way to poll this future again.
-            println!("i = {i}");
-            if i == 1 {
-                println!("...ready");
-                std::task::Poll::Ready(())
-            } else {
-                i += 1;
-                println!("...pending...");
-                std::task::Poll::Pending
-            }
-        }).await;
-    });
+    println!("main thread sleeps 1 second so that the above thread gets the chance to run");
+    std::thread::sleep(Duration::from_secs(1));
 
+    rt.block_on(async {
+        for i in 0..=10 {
+            // these tasks will be pushed into the local queue as when `block_on`
+            // runs this current thread gets a runtime(`enter_runtime`).
+            tokio::spawn(async move {
+                println!("+++++ in block_on {i} +++++");
+            });
+        }
+
+        // when this future returns Poll::Pending, the scheduler will first retrieve
+        // tasks from the local queue and then the remote queue.
+        tokio::signal::ctrl_c().await.unwrap();
+    });
     Ok(())
 }

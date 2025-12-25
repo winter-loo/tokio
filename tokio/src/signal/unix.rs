@@ -32,6 +32,7 @@ impl Init for OsStorage {
         #[cfg(any(target_os = "linux", target_os = "illumos"))]
         let possible = 0..=libc::SIGRTMAX();
 
+        println!("=== [OsStorage::init] pre-store all possible signals metadata");
         possible.map(|_| SignalInfo::default()).collect()
     }
 }
@@ -252,8 +253,10 @@ impl Default for SignalInfo {
 ///
 /// Those two operations should both be async-signal safe.
 fn action(globals: &'static Globals, signal: libc::c_int) {
+    println!("signal received ...{}", signal);
     globals.record_event(signal as EventId);
 
+    println!("write to unix stream to wake up someone");
     // Send a wakeup, ignore any errors (anything reasonably possible is
     // full pipe and then it will wake up anyway).
     let mut sender = &globals.sender;
@@ -285,6 +288,7 @@ fn signal_enable(signal: SignalKind, handle: &Handle) -> io::Result<()> {
     let mut registered = Ok(());
     siginfo.init.call_once(|| {
         registered = unsafe {
+            println!("=== register signal handler");
             signal_hook_registry::register(signal, move || action(globals, signal)).map(|_| ())
         };
         if registered.is_ok() {

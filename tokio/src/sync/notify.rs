@@ -1026,6 +1026,7 @@ impl Notified<'_> {
     }
 
     fn poll_notified(self: Pin<&mut Self>, waker: Option<&Waker>) -> Poll<()> {
+        println!("Notified::poll....polling...2");
         self.project().poll_notified(waker)
     }
 }
@@ -1034,6 +1035,7 @@ impl Future for Notified<'_> {
     type Output = ();
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<()> {
+        println!("Notified::poll....polling...1");
         self.poll_notified(Some(cx.waker()))
     }
 }
@@ -1113,9 +1115,11 @@ impl NotifiedProject<'_> {
             waiter,
         } = self;
 
+        println!("NotifiedProject::poll_notified....big state machine...");
         'outer_loop: loop {
             match *state {
                 State::Init => {
+                    println!("NotifiedProject::poll_notified....big state machine...Init");
                     let curr = notify.state.load(SeqCst);
 
                     // Optimistically try acquiring a pending notification
@@ -1218,6 +1222,7 @@ impl NotifiedProject<'_> {
                     return Poll::Pending;
                 }
                 State::Waiting => {
+                    println!("NotifiedProject::poll_notified....big state machine...Waiting");
                     #[cfg(feature = "taskdump")]
                     if let Some(waker) = waker {
                         let mut ctx = Context::from_waker(waker);
@@ -1312,6 +1317,7 @@ impl NotifiedProject<'_> {
                     drop(old_waker);
                 }
                 State::Done => {
+                    println!("NotifiedProject::poll_notified....big state machine...Done");
                     #[cfg(feature = "taskdump")]
                     if let Some(waker) = waker {
                         let mut ctx = Context::from_waker(waker);

@@ -193,25 +193,30 @@ impl CurrentThread {
             // available or the future is complete.
             loop {
                 if let Some(core) = self.take_core(handle) {
+                    println!("!!!! Get the Core !!!");
                     handle
                         .shared
                         .worker_metrics
                         .set_thread_id(thread::current().id());
                     return core.block_on(future);
                 } else {
+                    println!("wait for the Core or the Future");
                     let notified = self.notify.notified();
                     pin!(notified);
 
                     if let Some(out) = blocking
                         .block_on(poll_fn(|cx| {
                             if notified.as_mut().poll(cx).is_ready() {
+                                println!("Core available!!!! Try loop again");
                                 return Ready(None);
                             }
 
                             if let Ready(out) = future.as_mut().poll(cx) {
+                                println!("The Future complets by others");
                                 return Ready(Some(out));
                             }
 
+                            println!("continue pending");
                             Pending
                         }))
                         .expect("Failed to `Enter::block_on`")
@@ -318,12 +323,17 @@ impl Core {
 
     fn next_task(&mut self, handle: &Handle) -> Option<Notified> {
         if self.tick % self.global_queue_interval == 0 {
+            println!("try to get a task from a remote queue...");
             handle
                 .next_remote_task()
                 .or_else(|| self.next_local_task(handle))
         } else {
+            println!("try to get a task from a local queue...");
             self.next_local_task(handle)
-                .or_else(|| handle.next_remote_task())
+                .or_else(|| {
+                    println!("no tasks in local queue! ...Try to get a task from a remote queue");
+                    handle.next_remote_task()
+                })
         }
     }
 
@@ -657,6 +667,7 @@ impl Schedule for Arc<Handle> {
             Some(CurrentThread(cx)) if Arc::ptr_eq(self, &cx.handle) => {
                 let mut core = cx.core.borrow_mut();
 
+                println!("-->--> push to local queue ---");
                 // If `None`, the runtime is shutting down, so there is no need
                 // to schedule the task.
                 if let Some(core) = core.as_mut() {
@@ -664,6 +675,8 @@ impl Schedule for Arc<Handle> {
                 }
             }
             _ => {
+
+                println!("-->--> push to remote queue ---");
                 // Track that a task was scheduled from **outside** of the runtime.
                 self.shared.scheduler_metrics.inc_remote_schedule_count();
 

@@ -72,7 +72,9 @@ struct RxFuture {
 }
 
 async fn make_future(mut rx: Receiver<()>) -> Receiver<()> {
+    println!("make_future will await rx.changed()");
     rx.changed().await.expect("signal sender went away");
+    println!("make_future await rx.changed() ready");
     rx
 }
 
@@ -85,13 +87,16 @@ impl RxFuture {
 
     async fn recv(&mut self) -> Option<()> {
         use std::future::poll_fn;
+        println!("RxFuture::recv will use poll_fn to poll inner future");
         poll_fn(|cx| self.poll_recv(cx)).await
     }
 
     fn poll_recv(&mut self, cx: &mut Context<'_>) -> Poll<Option<()>> {
+        println!("RxFuture::poll_recv will use inner(ReusableBoxFuture) future's poll method");
         match self.inner.poll(cx) {
             Poll::Pending => Poll::Pending,
             Poll::Ready(rx) => {
+                println!("RxFuture::poll_recv create a new stored future and say ready");
                 self.inner.set(make_future(rx));
                 Poll::Ready(Some(()))
             }

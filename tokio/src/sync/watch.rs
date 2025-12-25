@@ -993,9 +993,11 @@ async fn changed_impl<T>(
         let notified = shared.notify_rx.notified();
 
         if let Some(ret) = maybe_changed(shared, version) {
+            println!("watch::changed_impl....ready to return...");
             return ret;
         }
 
+        println!("watch::changed_impl....ready to run big state machine...");
         notified.await;
         // loop around again in case the wake-up was spurious
     }
