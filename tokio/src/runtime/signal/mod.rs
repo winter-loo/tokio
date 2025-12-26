@@ -110,6 +110,7 @@ impl Driver {
             return;
         }
 
+        println!("...consume all signal events....through pipe(UnixStream)");
         // Drain the pipe completely so we can receive a new readiness event
         // if another signal has come in.
         let mut buf = [0; 128];
@@ -123,6 +124,7 @@ impl Driver {
             }
         }
 
+        println!("...broadcast all signal events....by checking flag");
         // Broadcast any signals which were received
         globals().broadcast();
     }

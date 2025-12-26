@@ -101,6 +101,7 @@ impl<S: Storage> Registry<S> {
                 return;
             }
 
+            println!("=== broadcast a signal event by watch::Sender(increament version number)");
             // Ignore errors if there are no listeners
             if event_info.tx.send(()).is_ok() {
                 did_notify = true;

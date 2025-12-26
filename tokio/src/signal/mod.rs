@@ -72,9 +72,9 @@ struct RxFuture {
 }
 
 async fn make_future(mut rx: Receiver<()>) -> Receiver<()> {
-    println!("make_future will await rx.changed()");
+    println!("make_future will await rx.changed().....when polling again and signal received, it will go on");
     rx.changed().await.expect("signal sender went away");
-    println!("make_future await rx.changed() ready");
+    println!("make_future rx.changed() passed");
     rx
 }
 
@@ -96,7 +96,7 @@ impl RxFuture {
         match self.inner.poll(cx) {
             Poll::Pending => Poll::Pending,
             Poll::Ready(rx) => {
-                println!("RxFuture::poll_recv create a new stored future and say ready");
+                println!("RxFuture::poll_recv installs a new stored future inplace(listen for next event) and say ready");
                 self.inner.set(make_future(rx));
                 Poll::Ready(Some(()))
             }
